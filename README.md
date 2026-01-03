@@ -74,6 +74,14 @@ Events:
 - Track schema varies across Rekordbox versions. When unknown, `tracks` emits raw rows from the detected song table (e.g., `djmdSong`). Map to your internal types as needed.
 - History polling is rowid-based: on startup the cursor seeds to the current max rowid, so `history` only emits new plays after the library starts.
 
+## Related Packages
+
+- [prolink-connect](https://github.com/chrisle/prolink-connect) — Pioneer Pro DJ Link integration
+- [serato-connect](https://github.com/chrisle/serato-connect) — Serato DJ integration
+- [stagelinq](https://github.com/chrisle/stagelinq) — Denon StageLinq integration
+
+These libraries power [Now Playing](https://nowplayingapp.com) — a real-time track display app for DJs and streamers.
+
 ## License
 
-See repository license.
+MIT
