@@ -1,5 +1,11 @@
 # Change log
 
+## v1.0.2
+
+- test: add comprehensive unit tests for all modules
+- docs: add related packages section to README
+- chore: remove GitHub Actions, publish locally via 1Password
+
 ## v1.0.1
 
 - fix: handle null return from execSync in release script
