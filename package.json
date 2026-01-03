@@ -2,6 +2,7 @@
   "name": "rekordbox-connect",
   "version": "1.0.0",
   "description": "Library to read the Rekordbox database and emit change events",
+  "license": "MIT",
   "private": false,
   "type": "commonjs",
   "main": "dist/index.js",
