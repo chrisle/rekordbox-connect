@@ -76,7 +76,7 @@ Events:
 
 ## Related Packages
 
-- [prolink-connect](https://github.com/chrisle/prolink-connect) — Pioneer Pro DJ Link integration
+- [alphatheta-connect](https://github.com/chrisle/alphatheta-connect) — Pioneer Pro DJ Link integration
 - [serato-connect](https://github.com/chrisle/serato-connect) — Serato DJ integration
 - [stagelinq](https://github.com/chrisle/stagelinq) — Denon StageLinq integration
 
