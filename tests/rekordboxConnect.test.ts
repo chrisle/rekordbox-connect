@@ -1,48 +1,49 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Use vi.hoisted to create mock instance before vi.mock runs
+const { mockDbInstance } = vi.hoisted(() => ({
+  mockDbInstance: {
+    open: vi.fn(),
+    close: vi.fn(),
+    seedHistoryCursor: vi.fn(),
+    loadNewHistory: vi.fn(),
+  },
+}));
+
 // Mock dependencies before importing
 vi.mock('../src/detectDb', () => ({
   getRekordboxConfig: vi.fn(),
 }));
 
-vi.mock('../src/db', () => ({
-  RekordboxDb: vi.fn(),
-}));
+vi.mock('../src/db', () => {
+  const MockRekordboxDb = vi.fn(function(this: any) {
+    Object.assign(this, mockDbInstance);
+  });
+  return { RekordboxDb: MockRekordboxDb };
+});
 
 import { RekordboxConnect } from '../src/rekordboxConnect';
 import { getRekordboxConfig } from '../src/detectDb';
 import { RekordboxDb } from '../src/db';
 
 describe('RekordboxConnect', () => {
-  let mockDbInstance: {
-    open: ReturnType<typeof vi.fn>;
-    close: ReturnType<typeof vi.fn>;
-    seedHistoryCursor: ReturnType<typeof vi.fn>;
-    loadNewHistory: ReturnType<typeof vi.fn>;
-  };
-
   beforeEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
     vi.useFakeTimers();
 
-    mockDbInstance = {
-      open: vi.fn(),
-      close: vi.fn(),
-      seedHistoryCursor: vi.fn().mockReturnValue(100),
-      loadNewHistory: vi.fn().mockReturnValue({
-        dbPath: '/path/to/master.db',
-        count: 0,
-        rows: [],
-        lastRowId: 100,
-      }),
-    };
+    // Reset mock return values
+    mockDbInstance.seedHistoryCursor.mockReturnValue(100);
+    mockDbInstance.loadNewHistory.mockReturnValue({
+      dbPath: '/path/to/master.db',
+      count: 0,
+      rows: [],
+      lastRowId: 100,
+    });
 
     vi.mocked(getRekordboxConfig).mockReturnValue({
       dbPath: '/path/to/master.db',
       password: 'testpassword',
     });
-
-    vi.mocked(RekordboxDb).mockImplementation(() => mockDbInstance as any);
   });
 
   afterEach(() => {

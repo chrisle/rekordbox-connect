@@ -1,34 +1,34 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
 
+// Create hoisted mock that persists across vi.mock hoisting
+const { mockDb } = vi.hoisted(() => ({
+  mockDb: {
+    pragma: vi.fn(),
+    prepare: vi.fn(),
+    close: vi.fn(),
+  },
+}));
+
 // Mock modules
 vi.mock('node:fs');
 vi.mock('better-sqlite3-multiple-ciphers', () => {
-  return {
-    default: vi.fn(),
-  };
+  const MockBetterSqlite = vi.fn(function(this: any) {
+    Object.assign(this, mockDb);
+  });
+  return { default: MockBetterSqlite };
 });
 
 import createBetterSqlite3 from 'better-sqlite3-multiple-ciphers';
 import { RekordboxDb } from '../src/db';
 
 describe('RekordboxDb', () => {
-  let mockDb: {
-    pragma: ReturnType<typeof vi.fn>;
-    prepare: ReturnType<typeof vi.fn>;
-    close: ReturnType<typeof vi.fn>;
-  };
-
   beforeEach(() => {
-    vi.resetAllMocks();
-
-    mockDb = {
-      pragma: vi.fn(),
-      prepare: vi.fn(),
-      close: vi.fn(),
-    };
-
-    vi.mocked(createBetterSqlite3).mockReturnValue(mockDb as any);
+    vi.clearAllMocks();
+    // Reset mock implementations to default behavior
+    mockDb.pragma.mockReset();
+    mockDb.prepare.mockReset();
+    mockDb.close.mockReset();
   });
 
   describe('open', () => {
