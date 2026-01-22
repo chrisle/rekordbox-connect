@@ -1,5 +1,17 @@
 # Change log
 
+## v1.0.3
+
+- fix: correct vitest mock setup for constructor mocks
+- fix: add contents write permission for git push
+- fix: handle yarn.lock and improve changelog generation
+- ci: auto-version bump and publish on push to main
+- docs: update prolink-connect reference to alphatheta-connect
+- chore: update package-lock.json
+- chore: update dependencies for better performance
+- chore: sync package-lock.json with v1.0.2 release
+
+
 ## v1.0.2
 
 - test: add comprehensive unit tests for all modules
