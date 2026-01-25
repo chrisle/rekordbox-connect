@@ -1,5 +1,10 @@
 # Change log
 
+## v1.0.4
+
+- fix: update database connection handling
+
+
 ## v1.0.3
 
 - fix: correct vitest mock setup for constructor mocks
