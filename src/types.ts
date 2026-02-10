@@ -12,6 +12,13 @@ export type RekordboxConnectOptions = {
   maxRows?: number;
   /** Maximum number of new history rows to emit per poll. */
   historyMaxRows?: number;
+  /**
+   * DANGEROUS: Enable write access to modify song history.
+   * When enabled, popHistory() and pushHistory() will actually modify the database.
+   * When disabled (default), these methods are no-ops.
+   * Only enable if you understand the risks of modifying the Rekordbox database.
+   */
+  dangerouslyModifyHistory?: boolean;
 };
 
 /**
@@ -41,6 +48,27 @@ export type RekordboxHistoryPayload = {
   count: number;
   rows: Record<string, unknown>[];
   lastRowId?: number;
+};
+
+/**
+ * Full djmdSongHistory record as stored in the database.
+ * Used for pop/push operations to preserve the exact record.
+ */
+export type SongHistoryRecord = {
+  rowid: number;
+  ID: string;
+  HistoryID: string;
+  ContentID: string;
+  TrackNo: number;
+  UUID: string;
+  rb_data_status: number;
+  rb_local_data_status: number;
+  rb_local_deleted: number;
+  rb_local_synced: number;
+  usn: number;
+  rb_local_usn: number;
+  created_at: string;
+  updated_at: string;
 };
 
 export interface RekordboxConnectEvents {

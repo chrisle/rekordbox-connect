@@ -5,7 +5,8 @@ export type {
     RekordboxHistoryPayload,
     RekordboxOptions,
     RekordboxReadyInfo,
-    RekordboxTracksPayload
+    RekordboxTracksPayload,
+    SongHistoryRecord
 } from './types';
 export { REKORDBOX_MAGIC } from './types';
 export {

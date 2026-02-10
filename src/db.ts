@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3-multiple-ciphers';
 import createBetterSqlite3 from 'better-sqlite3-multiple-ciphers';
 import fs from 'node:fs';
-import type { RekordboxHistoryPayload, RekordboxTracksPayload } from './types';
+import type { RekordboxHistoryPayload, RekordboxTracksPayload, SongHistoryRecord } from './types';
 
 const DEFAULT_MAX_ROWS = 5000;
 const DEFAULT_HISTORY_ROWS = 100;
@@ -12,11 +12,15 @@ const CONTENT_TABLE = 'djmdContent';
 
 export class RekordboxDb {
   private db?: Database.Database;
+  private readonly isReadonly: boolean;
 
   constructor(
     private readonly dbPath: string,
-    private readonly password: string
-  ) {}
+    private readonly password: string,
+    readonly: boolean = true
+  ) {
+    this.isReadonly = readonly;
+  }
 
   open(): void {
     this.close();
@@ -25,7 +29,7 @@ export class RekordboxDb {
       throw new Error(`Rekordbox database not found at: ${this.dbPath}`);
     }
 
-    this.db = new createBetterSqlite3(this.dbPath, { readonly: true });
+    this.db = new createBetterSqlite3(this.dbPath, { readonly: this.isReadonly });
 
     // Configure SQLCipher
     this.db.pragma(`cipher='sqlcipher'`);
@@ -161,6 +165,101 @@ export class RekordboxDb {
       return { dbPath: this.dbPath, count: rows.length, rows, lastRowId };
     } catch {
       return { dbPath: this.dbPath, count: 0, rows: [], lastRowId: sinceRowId };
+    }
+  }
+
+  /**
+   * Pop (remove and return) the last song history entry.
+   * Only works if the database was opened with readonly=false.
+   * Returns undefined if readonly or no entries exist.
+   */
+  popHistory(): SongHistoryRecord | undefined {
+    if (!this.db || this.isReadonly) return undefined;
+
+    try {
+      // Get the last entry (highest rowid)
+      const selectQuery = `
+        SELECT
+          rowid,
+          ID,
+          HistoryID,
+          ContentID,
+          TrackNo,
+          UUID,
+          rb_data_status,
+          rb_local_data_status,
+          rb_local_deleted,
+          rb_local_synced,
+          usn,
+          rb_local_usn,
+          created_at,
+          updated_at
+        FROM ${HISTORY_TABLE}
+        ORDER BY rowid DESC
+        LIMIT 1
+      `;
+
+      const record = this.db.prepare(selectQuery).get() as SongHistoryRecord | undefined;
+      if (!record) return undefined;
+
+      // Delete the entry
+      const deleteQuery = `DELETE FROM ${HISTORY_TABLE} WHERE rowid = @rowid`;
+      this.db.prepare(deleteQuery).run({ rowid: record.rowid });
+
+      return record;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Push (insert) a song history entry back into the database.
+   * Only works if the database was opened with readonly=false.
+   * The record should be one previously returned by popHistory().
+   * Returns true if successful, false otherwise.
+   */
+  pushHistory(record: SongHistoryRecord): boolean {
+    if (!this.db || this.isReadonly) return false;
+
+    try {
+      const insertQuery = `
+        INSERT INTO ${HISTORY_TABLE} (
+          rowid,
+          ID,
+          HistoryID,
+          ContentID,
+          TrackNo,
+          UUID,
+          rb_data_status,
+          rb_local_data_status,
+          rb_local_deleted,
+          rb_local_synced,
+          usn,
+          rb_local_usn,
+          created_at,
+          updated_at
+        ) VALUES (
+          @rowid,
+          @ID,
+          @HistoryID,
+          @ContentID,
+          @TrackNo,
+          @UUID,
+          @rb_data_status,
+          @rb_local_data_status,
+          @rb_local_deleted,
+          @rb_local_synced,
+          @usn,
+          @rb_local_usn,
+          @created_at,
+          @updated_at
+        )
+      `;
+
+      this.db.prepare(insertQuery).run(record);
+      return true;
+    } catch {
+      return false;
     }
   }
 }

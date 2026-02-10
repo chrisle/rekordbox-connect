@@ -86,7 +86,8 @@ describe('RekordboxConnect', () => {
       rb.start();
 
       expect(getRekordboxConfig).toHaveBeenCalled();
-      expect(RekordboxDb).toHaveBeenCalledWith('/path/to/master.db', 'testpassword');
+      // Third arg is readonly=true (since dangerouslyModifyHistory defaults to false)
+      expect(RekordboxDb).toHaveBeenCalledWith('/path/to/master.db', 'testpassword', true);
       expect(mockDbInstance.open).toHaveBeenCalled();
     });
 
@@ -328,6 +329,92 @@ describe('RekordboxConnect', () => {
       rb.start();
       vi.advanceTimersByTime(1000);
       rb.stop();
+    });
+  });
+
+  describe('popHistory', () => {
+    const mockRecord = {
+      rowid: 100,
+      ID: 'abc123',
+      HistoryID: 'hist456',
+      ContentID: 'content789',
+      TrackNo: 5,
+      UUID: 'uuid-xyz',
+      rb_data_status: 0,
+      rb_local_data_status: 0,
+      rb_local_deleted: 0,
+      rb_local_synced: 1,
+      usn: 1000,
+      rb_local_usn: 1000,
+      created_at: '2024-01-15 10:30:00',
+      updated_at: '2024-01-15 10:30:00',
+    };
+
+    it('returns undefined when dangerouslyModifyHistory is false', () => {
+      const rb = new RekordboxConnect();
+      rb.start();
+      const result = rb.popHistory();
+      expect(result).toBeUndefined();
+    });
+
+    it('returns undefined when db is not opened', () => {
+      const rb = new RekordboxConnect({ dangerouslyModifyHistory: true });
+      const result = rb.popHistory();
+      expect(result).toBeUndefined();
+    });
+
+    it('delegates to db.popHistory when enabled', () => {
+      mockDbInstance.popHistory = vi.fn().mockReturnValue(mockRecord);
+
+      const rb = new RekordboxConnect({ dangerouslyModifyHistory: true });
+      rb.start();
+      const result = rb.popHistory();
+
+      expect(mockDbInstance.popHistory).toHaveBeenCalled();
+      expect(result).toEqual(mockRecord);
+    });
+  });
+
+  describe('pushHistory', () => {
+    const mockRecord = {
+      rowid: 100,
+      ID: 'abc123',
+      HistoryID: 'hist456',
+      ContentID: 'content789',
+      TrackNo: 5,
+      UUID: 'uuid-xyz',
+      rb_data_status: 0,
+      rb_local_data_status: 0,
+      rb_local_deleted: 0,
+      rb_local_synced: 1,
+      usn: 1000,
+      rb_local_usn: 1000,
+      created_at: '2024-01-15 10:30:00',
+      updated_at: '2024-01-15 10:30:00',
+    };
+
+    it('returns false when dangerouslyModifyHistory is false', () => {
+      const rb = new RekordboxConnect();
+      rb.start();
+      const result = rb.pushHistory(mockRecord);
+      expect(result).toBe(false);
+    });
+
+    it('returns false when db is not opened', () => {
+      const rb = new RekordboxConnect({ dangerouslyModifyHistory: true });
+      const result = rb.pushHistory(mockRecord);
+      expect(result).toBe(false);
+    });
+
+    it('delegates to db.pushHistory when enabled', () => {
+      mockDbInstance.pushHistory = vi.fn().mockReturnValue(true);
+
+      const rb = new RekordboxConnect({ dangerouslyModifyHistory: true });
+      rb.start();
+      const result = rb.pushHistory(mockRecord);
+
+      expect(mockDbInstance.pushHistory).toHaveBeenCalledWith(mockRecord);
+      expect(result).toBe(true);
     });
   });
 });

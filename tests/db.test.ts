@@ -39,7 +39,7 @@ describe('RekordboxDb', () => {
       expect(() => db.open()).toThrow('Rekordbox database not found at: /path/to/missing.db');
     });
 
-    it('opens database with correct SQLCipher pragmas', () => {
+    it('opens database with correct SQLCipher pragmas (readonly by default)', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
 
       const db = new RekordboxDb('/path/to/master.db', 'mypassword');
@@ -50,6 +50,15 @@ describe('RekordboxDb', () => {
       expect(mockDb.pragma).toHaveBeenCalledWith('legacy=4');
       expect(mockDb.pragma).toHaveBeenCalledWith("key='mypassword'");
       expect(mockDb.pragma).toHaveBeenCalledWith('read_uncommitted=true');
+    });
+
+    it('opens database in write mode when readonly=false', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const db = new RekordboxDb('/path/to/master.db', 'mypassword', false);
+      db.open();
+
+      expect(createBetterSqlite3).toHaveBeenCalledWith('/path/to/master.db', { readonly: false });
     });
 
     it('throws on decryption failure', () => {
@@ -322,6 +331,162 @@ describe('RekordboxDb', () => {
         rows: [],
         lastRowId: 42,
       });
+    });
+  });
+
+  describe('popHistory', () => {
+    const mockRecord = {
+      rowid: 100,
+      ID: 'abc123',
+      HistoryID: 'hist456',
+      ContentID: 'content789',
+      TrackNo: 5,
+      UUID: 'uuid-xyz',
+      rb_data_status: 0,
+      rb_local_data_status: 0,
+      rb_local_deleted: 0,
+      rb_local_synced: 1,
+      usn: 1000,
+      rb_local_usn: 1000,
+      created_at: '2024-01-15 10:30:00',
+      updated_at: '2024-01-15 10:30:00',
+    };
+
+    it('returns undefined when database not opened', () => {
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      const result = db.popHistory();
+      expect(result).toBeUndefined();
+    });
+
+    it('returns undefined when database is readonly', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', true);
+      db.open();
+      const result = db.popHistory();
+
+      expect(result).toBeUndefined();
+    });
+
+    it('pops and returns the last history entry', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const mockGet = vi.fn().mockReturnValue(mockRecord);
+      const mockRun = vi.fn();
+
+      mockDb.prepare.mockImplementation((query: string) => {
+        if (query.includes('SELECT')) {
+          return { get: mockGet };
+        }
+        if (query.includes('DELETE')) {
+          return { run: mockRun };
+        }
+        return { all: vi.fn().mockReturnValue([]) };
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      db.open();
+      const result = db.popHistory();
+
+      expect(result).toEqual(mockRecord);
+      expect(mockRun).toHaveBeenCalledWith({ rowid: 100 });
+    });
+
+    it('returns undefined when no entries exist', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      mockDb.prepare.mockReturnValue({
+        get: vi.fn().mockReturnValue(undefined),
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      db.open();
+      const result = db.popHistory();
+
+      expect(result).toBeUndefined();
+    });
+
+    it('returns undefined on query error', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      mockDb.prepare.mockReturnValue({
+        get: vi.fn().mockImplementation(() => {
+          throw new Error('query error');
+        }),
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      db.open();
+      const result = db.popHistory();
+
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('pushHistory', () => {
+    const mockRecord = {
+      rowid: 100,
+      ID: 'abc123',
+      HistoryID: 'hist456',
+      ContentID: 'content789',
+      TrackNo: 5,
+      UUID: 'uuid-xyz',
+      rb_data_status: 0,
+      rb_local_data_status: 0,
+      rb_local_deleted: 0,
+      rb_local_synced: 1,
+      usn: 1000,
+      rb_local_usn: 1000,
+      created_at: '2024-01-15 10:30:00',
+      updated_at: '2024-01-15 10:30:00',
+    };
+
+    it('returns false when database not opened', () => {
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      const result = db.pushHistory(mockRecord);
+      expect(result).toBe(false);
+    });
+
+    it('returns false when database is readonly', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', true);
+      db.open();
+      const result = db.pushHistory(mockRecord);
+
+      expect(result).toBe(false);
+    });
+
+    it('inserts the record and returns true', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const mockRun = vi.fn();
+      mockDb.prepare.mockReturnValue({
+        run: mockRun,
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      db.open();
+      const result = db.pushHistory(mockRecord);
+
+      expect(result).toBe(true);
+      expect(mockRun).toHaveBeenCalledWith(mockRecord);
+    });
+
+    it('returns false on insert error', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      mockDb.prepare.mockReturnValue({
+        run: vi.fn().mockImplementation(() => {
+          throw new Error('insert error');
+        }),
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      db.open();
+      const result = db.pushHistory(mockRecord);
+
+      expect(result).toBe(false);
     });
   });
 });
