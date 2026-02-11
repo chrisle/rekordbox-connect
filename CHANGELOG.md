@@ -1,5 +1,10 @@
 # Change log
 
+## v1.1.0
+
+- feat: add controller state emission support
+
+
 ## v1.0.4
 
 - fix: update database connection handling

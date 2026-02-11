@@ -1,6 +1,6 @@
 {
   "name": "rekordbox-connect",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "Library to read the Rekordbox database and emit change events",
   "license": "MIT",
   "private": false,
