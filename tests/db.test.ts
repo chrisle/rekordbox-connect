@@ -489,6 +489,46 @@ describe('RekordboxDb', () => {
     });
   });
 
+  describe('renamePlaylist', () => {
+    it('returns false when database not opened', () => {
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      expect(db.renamePlaylist('pl1', 'New Name')).toBe(false);
+    });
+
+    it('returns false when database is readonly', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', true);
+      db.open();
+      expect(db.renamePlaylist('pl1', 'New Name')).toBe(false);
+    });
+
+    it('renames a playlist', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const mockRun = vi.fn().mockReturnValue({ changes: 1 });
+      mockDb.prepare.mockReturnValue({ run: mockRun });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      db.open();
+      expect(db.renamePlaylist('pl1', 'New Name')).toBe(true);
+      expect(mockDb.prepare).toHaveBeenCalledWith(expect.stringContaining('UPDATE'));
+      expect(mockRun).toHaveBeenCalledWith(expect.objectContaining({ playlistId: 'pl1', name: 'New Name' }));
+    });
+
+    it('returns false when playlist not found', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      mockDb.prepare.mockReturnValue({
+        run: vi.fn().mockReturnValue({ changes: 0 }),
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      db.open();
+      expect(db.renamePlaylist('nonexistent', 'Name')).toBe(false);
+    });
+  });
+
   describe('seedHistoryCursor', () => {
     it('returns undefined when database not opened', () => {
       const db = new RekordboxDb('/path/to/master.db', 'password');

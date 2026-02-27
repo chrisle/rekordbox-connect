@@ -250,6 +250,21 @@ export class RekordboxDb {
     }
   }
 
+  renamePlaylist(playlistId: string, name: string): boolean {
+    if (!this.db || this.isReadonly) return false;
+
+    try {
+      const now = new Date().toISOString().replace('T', ' ').replace('Z', '');
+      const result = this.db.prepare(
+        `UPDATE ${PLAYLIST_TABLE} SET Name = @name, updated_at = @now WHERE ID = @playlistId`
+      ).run({ playlistId, name, now });
+
+      return result.changes > 0;
+    } catch {
+      return false;
+    }
+  }
+
   seedHistoryCursor(): number | undefined {
     if (!this.db) return undefined;
     try {
