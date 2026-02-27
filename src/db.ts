@@ -311,6 +311,39 @@ export class RekordboxDb {
     }
   }
 
+  removeTrackFromPlaylist(playlistId: string, contentId: string): boolean {
+    if (!this.db || this.isReadonly) return false;
+
+    try {
+      const remove = this.db.transaction(() => {
+        const result = this.db!.prepare(
+          `DELETE FROM ${SONG_PLAYLIST_TABLE} WHERE PlaylistID = @playlistId AND ContentID = @contentId`
+        ).run({ playlistId, contentId });
+
+        if (result.changes === 0) return false;
+
+        // Re-sequence: assign TrackNo 1,2,3... based on current order
+        const remaining = this.db!.prepare(
+          `SELECT ID FROM ${SONG_PLAYLIST_TABLE} WHERE PlaylistID = @playlistId ORDER BY TrackNo ASC`
+        ).all({ playlistId }) as { ID: string }[];
+
+        const updateStmt = this.db!.prepare(
+          `UPDATE ${SONG_PLAYLIST_TABLE} SET TrackNo = @trackNo WHERE ID = @id`
+        );
+
+        for (let i = 0; i < remaining.length; i++) {
+          updateStmt.run({ id: remaining[i].ID, trackNo: i + 1 });
+        }
+
+        return true;
+      });
+
+      return remove();
+    } catch {
+      return false;
+    }
+  }
+
   seedHistoryCursor(): number | undefined {
     if (!this.db) return undefined;
     try {

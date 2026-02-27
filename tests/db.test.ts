@@ -7,6 +7,7 @@ const { mockDb } = vi.hoisted(() => ({
     pragma: vi.fn(),
     prepare: vi.fn(),
     close: vi.fn(),
+    transaction: vi.fn((fn: Function) => fn),
   },
 }));
 
@@ -32,6 +33,8 @@ describe('RekordboxDb', () => {
     mockDb.pragma.mockReset();
     mockDb.prepare.mockReset();
     mockDb.close.mockReset();
+    mockDb.transaction.mockReset();
+    mockDb.transaction.mockImplementation((fn: Function) => fn);
   });
 
   describe('open', () => {
@@ -609,6 +612,57 @@ describe('RekordboxDb', () => {
       const db = new RekordboxDb('/path/to/master.db', 'password', false);
       db.open();
       expect(db.addTrackToPlaylist('pl1', 'c1')).toBeUndefined();
+    });
+  });
+
+  describe('removeTrackFromPlaylist', () => {
+    it('returns false when database not opened', () => {
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      expect(db.removeTrackFromPlaylist('pl1', 'c1')).toBe(false);
+    });
+
+    it('returns false when database is readonly', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', true);
+      db.open();
+      expect(db.removeTrackFromPlaylist('pl1', 'c1')).toBe(false);
+    });
+
+    it('removes the track and re-sequences remaining tracks', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const mockRun = vi.fn().mockReturnValue({ changes: 1 });
+      const mockAll = vi.fn().mockReturnValue([{ ID: 'sp2' }, { ID: 'sp3' }]);
+
+      mockDb.prepare.mockImplementation((query: string) => {
+        if (query.includes('DELETE')) {
+          return { run: mockRun };
+        }
+        if (query.includes('SELECT') && query.includes('ORDER BY TrackNo')) {
+          return { all: mockAll };
+        }
+        if (query.includes('UPDATE')) {
+          return { run: vi.fn() };
+        }
+        return { all: vi.fn().mockReturnValue([]) };
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      db.open();
+      expect(db.removeTrackFromPlaylist('pl1', 'content1')).toBe(true);
+    });
+
+    it('returns false when track not found in playlist', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      mockDb.prepare.mockReturnValue({
+        run: vi.fn().mockReturnValue({ changes: 0 }),
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      db.open();
+      expect(db.removeTrackFromPlaylist('pl1', 'nonexistent')).toBe(false);
     });
   });
 
