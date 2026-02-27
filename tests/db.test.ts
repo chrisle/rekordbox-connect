@@ -529,6 +529,89 @@ describe('RekordboxDb', () => {
     });
   });
 
+  describe('addTrackToPlaylist', () => {
+    it('returns undefined when database not opened', () => {
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      expect(db.addTrackToPlaylist('pl1', 'c1')).toBeUndefined();
+    });
+
+    it('returns undefined when database is readonly', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', true);
+      db.open();
+      expect(db.addTrackToPlaylist('pl1', 'c1')).toBeUndefined();
+    });
+
+    it('adds a track at the next TrackNo position', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const mockGet = vi.fn().mockReturnValue({ maxTrackNo: 3 });
+      const mockRun = vi.fn();
+
+      mockDb.prepare.mockImplementation((query: string) => {
+        if (query.includes('MAX(TrackNo)')) {
+          return { get: mockGet };
+        }
+        if (query.includes('INSERT')) {
+          return { run: mockRun };
+        }
+        return { all: vi.fn().mockReturnValue([]) };
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      db.open();
+      const result = db.addTrackToPlaylist('pl1', 'content1');
+
+      expect(result).toBeDefined();
+      expect(result!.PlaylistID).toBe('pl1');
+      expect(result!.ContentID).toBe('content1');
+      expect(result!.TrackNo).toBe(4);
+      expect(result!.ID).toBe('mock-uuid-1234');
+    });
+
+    it('assigns TrackNo=1 when playlist is empty', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const mockGet = vi.fn().mockReturnValue({ maxTrackNo: null });
+      const mockRun = vi.fn();
+
+      mockDb.prepare.mockImplementation((query: string) => {
+        if (query.includes('MAX(TrackNo)')) {
+          return { get: mockGet };
+        }
+        if (query.includes('INSERT')) {
+          return { run: mockRun };
+        }
+        return { all: vi.fn().mockReturnValue([]) };
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      db.open();
+      const result = db.addTrackToPlaylist('pl1', 'content1');
+
+      expect(result!.TrackNo).toBe(1);
+    });
+
+    it('returns undefined on insert error', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      mockDb.prepare.mockImplementation((query: string) => {
+        if (query.includes('MAX(TrackNo)')) {
+          return { get: vi.fn().mockReturnValue({ maxTrackNo: 0 }) };
+        }
+        if (query.includes('INSERT')) {
+          return { run: vi.fn().mockImplementation(() => { throw new Error('insert error'); }) };
+        }
+        return { all: vi.fn().mockReturnValue([]) };
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      db.open();
+      expect(db.addTrackToPlaylist('pl1', 'c1')).toBeUndefined();
+    });
+  });
+
   describe('seedHistoryCursor', () => {
     it('returns undefined when database not opened', () => {
       const db = new RekordboxDb('/path/to/master.db', 'password');

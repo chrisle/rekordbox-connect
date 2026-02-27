@@ -265,6 +265,52 @@ export class RekordboxDb {
     }
   }
 
+  addTrackToPlaylist(playlistId: string, contentId: string): SongPlaylistRecord | undefined {
+    if (!this.db || this.isReadonly) return undefined;
+
+    try {
+      const trackNoRow = this.db.prepare(
+        `SELECT MAX(TrackNo) AS maxTrackNo FROM ${SONG_PLAYLIST_TABLE} WHERE PlaylistID = @playlistId`
+      ).get({ playlistId }) as { maxTrackNo: number | null } | undefined;
+
+      const nextTrackNo = (trackNoRow?.maxTrackNo ?? 0) + 1;
+      const now = new Date().toISOString().replace('T', ' ').replace('Z', '');
+      const id = randomUUID();
+
+      const record: SongPlaylistRecord = {
+        ID: id,
+        PlaylistID: playlistId,
+        ContentID: contentId,
+        TrackNo: nextTrackNo,
+        UUID: id,
+        rb_data_status: 0,
+        rb_local_data_status: 0,
+        rb_local_deleted: 0,
+        rb_local_synced: 0,
+        usn: 0,
+        rb_local_usn: 0,
+        created_at: now,
+        updated_at: now,
+      };
+
+      this.db.prepare(`
+        INSERT INTO ${SONG_PLAYLIST_TABLE} (
+          ID, PlaylistID, ContentID, TrackNo, UUID,
+          rb_data_status, rb_local_data_status, rb_local_deleted,
+          rb_local_synced, usn, rb_local_usn, created_at, updated_at
+        ) VALUES (
+          @ID, @PlaylistID, @ContentID, @TrackNo, @UUID,
+          @rb_data_status, @rb_local_data_status, @rb_local_deleted,
+          @rb_local_synced, @usn, @rb_local_usn, @created_at, @updated_at
+        )
+      `).run(record);
+
+      return record;
+    } catch {
+      return undefined;
+    }
+  }
+
   seedHistoryCursor(): number | undefined {
     if (!this.db) return undefined;
     try {
