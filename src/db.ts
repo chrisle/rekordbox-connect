@@ -216,6 +216,40 @@ export class RekordboxDb {
     return this.createPlaylistEntry(name, 1, parentId);
   }
 
+  deletePlaylist(playlistId: string): boolean {
+    if (!this.db || this.isReadonly) return false;
+
+    try {
+      const row = this.db.prepare(
+        `SELECT Attribute FROM ${PLAYLIST_TABLE} WHERE ID = @playlistId`
+      ).get({ playlistId }) as { Attribute: number } | undefined;
+
+      if (!row) return false;
+
+      // If it's a folder, check for children
+      if (row.Attribute === 1) {
+        const children = this.db.prepare(
+          `SELECT ID FROM ${PLAYLIST_TABLE} WHERE ParentID = @playlistId`
+        ).all({ playlistId }) as { ID: string }[];
+
+        if (children.length > 0) return false;
+      }
+
+      // Delete track assignments then the playlist itself
+      this.db.prepare(
+        `DELETE FROM ${SONG_PLAYLIST_TABLE} WHERE PlaylistID = @playlistId`
+      ).run({ playlistId });
+
+      this.db.prepare(
+        `DELETE FROM ${PLAYLIST_TABLE} WHERE ID = @playlistId`
+      ).run({ playlistId });
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   seedHistoryCursor(): number | undefined {
     if (!this.db) return undefined;
     try {

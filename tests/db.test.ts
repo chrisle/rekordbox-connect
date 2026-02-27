@@ -390,6 +390,105 @@ describe('RekordboxDb', () => {
     });
   });
 
+  describe('deletePlaylist', () => {
+    it('returns false when database not opened', () => {
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      expect(db.deletePlaylist('pl1')).toBe(false);
+    });
+
+    it('returns false when database is readonly', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', true);
+      db.open();
+      expect(db.deletePlaylist('pl1')).toBe(false);
+    });
+
+    it('deletes a playlist and its track assignments', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const mockGet = vi.fn().mockReturnValue({ Attribute: 0 });
+      const mockAll = vi.fn().mockReturnValue([]);
+      const mockRun = vi.fn();
+
+      mockDb.prepare.mockImplementation((query: string) => {
+        if (query.includes('SELECT') && query.includes('Attribute')) {
+          return { get: mockGet };
+        }
+        if (query.includes('SELECT') && query.includes('ParentID')) {
+          return { all: mockAll };
+        }
+        if (query.includes('DELETE')) {
+          return { run: mockRun };
+        }
+        return { all: vi.fn().mockReturnValue([]) };
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      db.open();
+      expect(db.deletePlaylist('pl1')).toBe(true);
+      expect(mockRun).toHaveBeenCalledTimes(2);
+    });
+
+    it('refuses to delete a folder with children', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const mockGet = vi.fn().mockReturnValue({ Attribute: 1 });
+      const mockAll = vi.fn().mockReturnValue([{ ID: 'child1' }]);
+
+      mockDb.prepare.mockImplementation((query: string) => {
+        if (query.includes('SELECT') && query.includes('Attribute')) {
+          return { get: mockGet };
+        }
+        if (query.includes('SELECT') && query.includes('ParentID')) {
+          return { all: mockAll };
+        }
+        return { all: vi.fn().mockReturnValue([]) };
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      db.open();
+      expect(db.deletePlaylist('folder1')).toBe(false);
+    });
+
+    it('deletes an empty folder', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const mockGet = vi.fn().mockReturnValue({ Attribute: 1 });
+      const mockAll = vi.fn().mockReturnValue([]);
+      const mockRun = vi.fn();
+
+      mockDb.prepare.mockImplementation((query: string) => {
+        if (query.includes('SELECT') && query.includes('Attribute')) {
+          return { get: mockGet };
+        }
+        if (query.includes('SELECT') && query.includes('ParentID')) {
+          return { all: mockAll };
+        }
+        if (query.includes('DELETE')) {
+          return { run: mockRun };
+        }
+        return { all: vi.fn().mockReturnValue([]) };
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      db.open();
+      expect(db.deletePlaylist('folder1')).toBe(true);
+    });
+
+    it('returns false when playlist not found', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      mockDb.prepare.mockReturnValue({
+        get: vi.fn().mockReturnValue(undefined),
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      db.open();
+      expect(db.deletePlaylist('nonexistent')).toBe(false);
+    });
+  });
+
   describe('seedHistoryCursor', () => {
     it('returns undefined when database not opened', () => {
       const db = new RekordboxDb('/path/to/master.db', 'password');
