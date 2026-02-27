@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3-multiple-ciphers';
 import createBetterSqlite3 from 'better-sqlite3-multiple-ciphers';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import type { Playlist, PlaylistTrack, RekordboxHistoryPayload, RekordboxTracksPayload, SongHistoryRecord, SongPlaylistRecord } from './types';
 
@@ -164,6 +165,55 @@ export class RekordboxDb {
     } catch {
       return [];
     }
+  }
+
+  private createPlaylistEntry(name: string, attribute: number, parentId?: string): Playlist | undefined {
+    if (!this.db || this.isReadonly) return undefined;
+
+    try {
+      const seqRow = this.db.prepare(
+        `SELECT MAX(Seq) AS maxSeq FROM ${PLAYLIST_TABLE}`
+      ).get() as { maxSeq: number | null } | undefined;
+
+      const nextSeq = (seqRow?.maxSeq ?? 0) + 1;
+      const now = new Date().toISOString().replace('T', ' ').replace('Z', '');
+      const id = randomUUID();
+
+      const playlist: Playlist = {
+        ID: id,
+        Seq: nextSeq,
+        Name: name,
+        ImagePath: null,
+        Attribute: attribute,
+        ParentID: parentId ?? null,
+        SmartList: null,
+        created_at: now,
+        updated_at: now,
+      };
+
+      this.db.prepare(`
+        INSERT INTO ${PLAYLIST_TABLE} (
+          ID, Seq, Name, ImagePath, Attribute, ParentID, SmartList,
+          UUID, rb_data_status, rb_local_data_status, rb_local_deleted,
+          rb_local_synced, usn, rb_local_usn, created_at, updated_at
+        ) VALUES (
+          @ID, @Seq, @Name, @ImagePath, @Attribute, @ParentID, @SmartList,
+          @UUID, 0, 0, 0, 0, 0, 0, @created_at, @updated_at
+        )
+      `).run({ ...playlist, UUID: id });
+
+      return playlist;
+    } catch {
+      return undefined;
+    }
+  }
+
+  createPlaylist(name: string, parentId?: string): Playlist | undefined {
+    return this.createPlaylistEntry(name, 0, parentId);
+  }
+
+  createFolder(name: string, parentId?: string): Playlist | undefined {
+    return this.createPlaylistEntry(name, 1, parentId);
   }
 
   seedHistoryCursor(): number | undefined {
