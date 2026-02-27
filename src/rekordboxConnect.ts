@@ -2,10 +2,13 @@ import EventEmitter from "node:events";
 import { RekordboxDb } from "./db";
 import { getRekordboxConfig } from "./detectDb";
 import type {
+  Playlist,
+  PlaylistTrack,
   RekordboxConnectEvents,
   RekordboxConnectOptions,
   RekordboxHistoryPayload,
   SongHistoryRecord,
+  SongPlaylistRecord,
   TypedEmitter,
 } from "./types";
 
@@ -118,10 +121,58 @@ export class RekordboxConnect extends (EventEmitter as {
     if (!this.db || !this.dangerouslyModifyDatabase) return false;
     return this.db.pushHistory(record);
   }
+
+  loadPlaylists(): Playlist[] | undefined {
+    if (!this.db) return undefined;
+    return this.db.loadPlaylists();
+  }
+
+  loadPlaylistTracks(playlistId: string): PlaylistTrack[] | undefined {
+    if (!this.db) return undefined;
+    return this.db.loadPlaylistTracks(playlistId);
+  }
+
+  createPlaylist(name: string, parentId?: string): Playlist | undefined {
+    if (!this.db || !this.dangerouslyModifyDatabase) return undefined;
+    return this.db.createPlaylist(name, parentId);
+  }
+
+  createFolder(name: string, parentId?: string): Playlist | undefined {
+    if (!this.db || !this.dangerouslyModifyDatabase) return undefined;
+    return this.db.createFolder(name, parentId);
+  }
+
+  deletePlaylist(playlistId: string): boolean {
+    if (!this.db || !this.dangerouslyModifyDatabase) return false;
+    return this.db.deletePlaylist(playlistId);
+  }
+
+  renamePlaylist(playlistId: string, name: string): boolean {
+    if (!this.db || !this.dangerouslyModifyDatabase) return false;
+    return this.db.renamePlaylist(playlistId, name);
+  }
+
+  addTrackToPlaylist(playlistId: string, contentId: string): SongPlaylistRecord | undefined {
+    if (!this.db || !this.dangerouslyModifyDatabase) return undefined;
+    return this.db.addTrackToPlaylist(playlistId, contentId);
+  }
+
+  removeTrackFromPlaylist(playlistId: string, contentId: string): boolean {
+    if (!this.db || !this.dangerouslyModifyDatabase) return false;
+    return this.db.removeTrackFromPlaylist(playlistId, contentId);
+  }
+
+  reorderPlaylistTrack(playlistId: string, contentId: string, newTrackNo: number): boolean {
+    if (!this.db || !this.dangerouslyModifyDatabase) return false;
+    return this.db.reorderPlaylistTrack(playlistId, contentId, newTrackNo);
+  }
 }
 
 export type {
+  Playlist,
+  PlaylistTrack,
   RekordboxConnectEvents,
   RekordboxConnectOptions,
   SongHistoryRecord,
+  SongPlaylistRecord,
 };
