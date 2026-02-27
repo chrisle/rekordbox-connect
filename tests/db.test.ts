@@ -224,6 +224,51 @@ describe('RekordboxDb', () => {
     });
   });
 
+  describe('loadPlaylistTracks', () => {
+    it('returns undefined when database not opened', () => {
+      const db = new RekordboxDb('/path/to/master.db', 'password');
+      const result = db.loadPlaylistTracks('pl1');
+      expect(result).toBeUndefined();
+    });
+
+    it('loads enriched tracks for a playlist ordered by TrackNo', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const mockTracks = [
+        { trackNo: 1, id: 'c1', filePath: '/music/a.mp3', title: 'Track A', artist: 'Artist 1' },
+        { trackNo: 2, id: 'c2', filePath: '/music/b.mp3', title: 'Track B', artist: 'Artist 2' },
+      ];
+
+      mockDb.prepare.mockReturnValue({
+        all: vi.fn().mockReturnValue(mockTracks),
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password');
+      db.open();
+      const result = db.loadPlaylistTracks('pl1');
+
+      expect(result).toEqual(mockTracks);
+      expect(mockDb.prepare).toHaveBeenCalledWith(expect.stringContaining('djmdSongPlaylist'));
+      expect(mockDb.prepare().all).toHaveBeenCalledWith({ playlistId: 'pl1' });
+    });
+
+    it('returns empty array on query error', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      mockDb.prepare.mockReturnValue({
+        all: vi.fn().mockImplementation(() => {
+          throw new Error('query error');
+        }),
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password');
+      db.open();
+      const result = db.loadPlaylistTracks('pl1');
+
+      expect(result).toEqual([]);
+    });
+  });
+
   describe('seedHistoryCursor', () => {
     it('returns undefined when database not opened', () => {
       const db = new RekordboxDb('/path/to/master.db', 'password');

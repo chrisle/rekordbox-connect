@@ -123,6 +123,49 @@ export class RekordboxDb {
     }
   }
 
+  loadPlaylistTracks(playlistId: string): PlaylistTrack[] | undefined {
+    if (!this.db) return undefined;
+
+    const query = `
+      SELECT
+        sp.TrackNo AS trackNo,
+        c.ID AS id,
+        c.FolderPath AS filePath,
+        c.Title AS title,
+        c.Subtitle AS subTitle,
+        a.Name AS artist,
+        c.ImagePath AS imagePath,
+        c.BPM AS bpm,
+        c.Rating AS rating,
+        c.ReleaseDate AS releaseDate,
+        c.Length AS length,
+        c.ColorID AS colorId,
+        c.Commnt AS comment,
+        c.ISRC AS isrc,
+        al.Name AS album,
+        la.Name AS label,
+        ge.Name AS genre,
+        k.ScaleName AS key,
+        rmx.Name AS remixer
+      FROM ${SONG_PLAYLIST_TABLE} AS sp
+      JOIN ${CONTENT_TABLE} AS c ON sp.ContentID = c.ID
+      LEFT JOIN djmdArtist AS a ON c.ArtistID = a.ID
+      LEFT JOIN djmdArtist AS rmx ON c.RemixerID = rmx.ID
+      LEFT JOIN djmdAlbum AS al ON c.AlbumID = al.ID
+      LEFT JOIN djmdLabel AS la ON c.LabelID = la.ID
+      LEFT JOIN djmdGenre AS ge ON c.GenreID = ge.ID
+      LEFT JOIN djmdKey AS k ON c.KeyID = k.ID
+      WHERE sp.PlaylistID = @playlistId
+      ORDER BY sp.TrackNo ASC
+    `;
+
+    try {
+      return this.db.prepare(query).all({ playlistId }) as PlaylistTrack[];
+    } catch {
+      return [];
+    }
+  }
+
   seedHistoryCursor(): number | undefined {
     if (!this.db) return undefined;
     try {
