@@ -71,6 +71,67 @@ export type SongHistoryRecord = {
   updated_at: string;
 };
 
+/**
+ * Playlist or folder from djmdPlaylist table.
+ * Attribute: 0=playlist, 1=folder
+ */
+export type Playlist = {
+  ID: string;
+  Seq: number;
+  Name: string;
+  ImagePath: string | null;
+  Attribute: number;
+  ParentID: string | null;
+  SmartList: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/**
+ * Full djmdSongPlaylist record as stored in the database.
+ * Represents a track assignment within a playlist.
+ */
+export type SongPlaylistRecord = {
+  ID: string;
+  PlaylistID: string;
+  ContentID: string;
+  TrackNo: number;
+  UUID: string;
+  rb_data_status: number;
+  rb_local_data_status: number;
+  rb_local_deleted: number;
+  rb_local_synced: number;
+  usn: number;
+  rb_local_usn: number;
+  created_at: string;
+  updated_at: string;
+};
+
+/**
+ * Enriched track within a playlist, with joined metadata from djmdContent.
+ */
+export type PlaylistTrack = {
+  trackNo: number;
+  id: string;
+  filePath: string;
+  title: string;
+  subTitle: string | null;
+  artist: string | null;
+  imagePath: string | null;
+  bpm: number | null;
+  rating: number | null;
+  releaseDate: string | null;
+  length: number | null;
+  colorId: number | null;
+  comment: string | null;
+  isrc: string | null;
+  album: string | null;
+  label: string | null;
+  genre: string | null;
+  key: string | null;
+  remixer: string | null;
+};
+
 export interface RekordboxConnectEvents {
   ready: (info: RekordboxReadyInfo) => void;
   poll: () => void;
