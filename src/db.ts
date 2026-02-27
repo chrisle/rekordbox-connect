@@ -344,6 +344,45 @@ export class RekordboxDb {
     }
   }
 
+  reorderPlaylistTrack(playlistId: string, contentId: string, newTrackNo: number): boolean {
+    if (!this.db || this.isReadonly) return false;
+
+    try {
+      const reorder = this.db.transaction(() => {
+        // Find the track's current record
+        const record = this.db!.prepare(
+          `SELECT ID FROM ${SONG_PLAYLIST_TABLE} WHERE PlaylistID = @playlistId AND ContentID = @contentId`
+        ).get({ playlistId, contentId }) as { ID: string } | undefined;
+
+        if (!record) return false;
+
+        // Get all OTHER tracks in order
+        const others = this.db!.prepare(
+          `SELECT ID FROM ${SONG_PLAYLIST_TABLE} WHERE PlaylistID = @playlistId AND ID != @id ORDER BY TrackNo ASC`
+        ).all({ playlistId, id: record.ID }) as { ID: string }[];
+
+        // Insert our track at the desired position (1-indexed)
+        const insertIdx = Math.max(0, Math.min(newTrackNo - 1, others.length));
+        others.splice(insertIdx, 0, record);
+
+        // Re-sequence all
+        const updateStmt = this.db!.prepare(
+          `UPDATE ${SONG_PLAYLIST_TABLE} SET TrackNo = @trackNo WHERE ID = @id`
+        );
+
+        for (let i = 0; i < others.length; i++) {
+          updateStmt.run({ id: others[i].ID, trackNo: i + 1 });
+        }
+
+        return true;
+      });
+
+      return reorder();
+    } catch {
+      return false;
+    }
+  }
+
   seedHistoryCursor(): number | undefined {
     if (!this.db) return undefined;
     try {

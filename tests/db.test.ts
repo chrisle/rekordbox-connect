@@ -666,6 +666,61 @@ describe('RekordboxDb', () => {
     });
   });
 
+  describe('reorderPlaylistTrack', () => {
+    it('returns false when database not opened', () => {
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      expect(db.reorderPlaylistTrack('pl1', 'c1', 2)).toBe(false);
+    });
+
+    it('returns false when database is readonly', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', true);
+      db.open();
+      expect(db.reorderPlaylistTrack('pl1', 'c1', 2)).toBe(false);
+    });
+
+    it('moves a track to a new position and re-sequences', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      const mockGet = vi.fn().mockReturnValue({ ID: 'sp1' });
+      const mockAll = vi.fn().mockReturnValue([
+        { ID: 'sp2' },
+        { ID: 'sp3' },
+      ]);
+      const mockRun = vi.fn().mockReturnValue({ changes: 1 });
+
+      mockDb.prepare.mockImplementation((query: string) => {
+        if (query.includes('SELECT') && query.includes('ContentID = @contentId')) {
+          return { get: mockGet };
+        }
+        if (query.includes('SELECT') && query.includes('ORDER BY TrackNo')) {
+          return { all: mockAll };
+        }
+        if (query.includes('UPDATE')) {
+          return { run: mockRun };
+        }
+        return { all: vi.fn().mockReturnValue([]) };
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      db.open();
+      expect(db.reorderPlaylistTrack('pl1', 'content1', 2)).toBe(true);
+    });
+
+    it('returns false when track not found in playlist', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      mockDb.prepare.mockReturnValue({
+        get: vi.fn().mockReturnValue(undefined),
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password', false);
+      db.open();
+      expect(db.reorderPlaylistTrack('pl1', 'nonexistent', 1)).toBe(false);
+    });
+  });
+
   describe('seedHistoryCursor', () => {
     it('returns undefined when database not opened', () => {
       const db = new RekordboxDb('/path/to/master.db', 'password');
