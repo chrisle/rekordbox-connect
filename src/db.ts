@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3-multiple-ciphers';
 import createBetterSqlite3 from 'better-sqlite3-multiple-ciphers';
 import fs from 'node:fs';
-import type { RekordboxHistoryPayload, RekordboxTracksPayload, SongHistoryRecord } from './types';
+import type { Playlist, PlaylistTrack, RekordboxHistoryPayload, RekordboxTracksPayload, SongHistoryRecord, SongPlaylistRecord } from './types';
 
 const DEFAULT_MAX_ROWS = 5000;
 const DEFAULT_HISTORY_ROWS = 100;
@@ -9,6 +9,8 @@ const DEFAULT_HISTORY_ROWS = 100;
 // Known Rekordbox 6 table names
 const HISTORY_TABLE = 'djmdSongHistory';
 const CONTENT_TABLE = 'djmdContent';
+const PLAYLIST_TABLE = 'djmdPlaylist';
+const SONG_PLAYLIST_TABLE = 'djmdSongPlaylist';
 
 export class RekordboxDb {
   private db?: Database.Database;
@@ -101,6 +103,23 @@ export class RekordboxDb {
       return { dbPath: this.dbPath, count: rows.length, rows };
     } catch {
       return { dbPath: this.dbPath, count: 0, rows: [] };
+    }
+  }
+
+  loadPlaylists(): Playlist[] | undefined {
+    if (!this.db) return undefined;
+
+    const query = `
+      SELECT ID, Seq, Name, ImagePath, Attribute, ParentID, SmartList,
+             created_at, updated_at
+      FROM ${PLAYLIST_TABLE}
+      ORDER BY Seq ASC
+    `;
+
+    try {
+      return this.db.prepare(query).all() as Playlist[];
+    } catch {
+      return [];
     }
   }
 
