@@ -13,12 +13,12 @@ export type RekordboxConnectOptions = {
   /** Maximum number of new history rows to emit per poll. */
   historyMaxRows?: number;
   /**
-   * DANGEROUS: Enable write access to modify song history.
-   * When enabled, popHistory() and pushHistory() will actually modify the database.
-   * When disabled (default), these methods are no-ops.
+   * DANGEROUS: Enable write access to modify the Rekordbox database.
+   * When enabled, write operations (history pop/push, playlist CRUD) will modify the database.
+   * When disabled (default), write methods are no-ops.
    * Only enable if you understand the risks of modifying the Rekordbox database.
    */
-  dangerouslyModifyHistory?: boolean;
+  dangerouslyModifyDatabase?: boolean;
 };
 
 /**

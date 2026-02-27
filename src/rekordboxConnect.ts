@@ -16,7 +16,7 @@ export class RekordboxConnect extends (EventEmitter as {
   private readonly historyMaxRows?: number;
   private readonly explicitDbPath?: string;
   private readonly explicitDbPassword?: string;
-  private readonly dangerouslyModifyHistory: boolean;
+  private readonly dangerouslyModifyDatabase: boolean;
   private dbPath?: string;
   private timer?: NodeJS.Timeout;
   private db?: RekordboxDb;
@@ -29,8 +29,8 @@ export class RekordboxConnect extends (EventEmitter as {
     this.explicitDbPassword = opts.dbPassword;
     this.historyMaxRows = opts.historyMaxRows;
     // Enable via option or environment variable NP_DANGEROUSLY_MODIFY_RB_DB=true
-    this.dangerouslyModifyHistory =
-      opts.dangerouslyModifyHistory ??
+    this.dangerouslyModifyDatabase =
+      opts.dangerouslyModifyDatabase ??
       process.env.NP_DANGEROUSLY_MODIFY_RB_DB === "1";
   }
 
@@ -46,7 +46,7 @@ export class RekordboxConnect extends (EventEmitter as {
       this.db = new RekordboxDb(
         dbPath,
         password,
-        !this.dangerouslyModifyHistory,
+        !this.dangerouslyModifyDatabase,
       );
       this.db.open();
 
@@ -100,22 +100,22 @@ export class RekordboxConnect extends (EventEmitter as {
 
   /**
    * Pop (remove and return) the last song history entry.
-   * Only works if dangerouslyModifyHistory was set to true.
+   * Only works if dangerouslyModifyDatabase was set to true.
    * Returns undefined if not enabled or no entries exist.
    */
   popHistory(): SongHistoryRecord | undefined {
-    if (!this.db || !this.dangerouslyModifyHistory) return undefined;
+    if (!this.db || !this.dangerouslyModifyDatabase) return undefined;
     return this.db.popHistory();
   }
 
   /**
    * Push (insert) a song history entry back into the database.
-   * Only works if dangerouslyModifyHistory was set to true.
+   * Only works if dangerouslyModifyDatabase was set to true.
    * The record should be one previously returned by popHistory().
    * Returns true if successful, false otherwise.
    */
   pushHistory(record: SongHistoryRecord): boolean {
-    if (!this.db || !this.dangerouslyModifyHistory) return false;
+    if (!this.db || !this.dangerouslyModifyDatabase) return false;
     return this.db.pushHistory(record);
   }
 }

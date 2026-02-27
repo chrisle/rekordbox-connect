@@ -86,7 +86,7 @@ describe('RekordboxConnect', () => {
       rb.start();
 
       expect(getRekordboxConfig).toHaveBeenCalled();
-      // Third arg is readonly=true (since dangerouslyModifyHistory defaults to false)
+      // Third arg is readonly=true (since dangerouslyModifyDatabase defaults to false)
       expect(RekordboxDb).toHaveBeenCalledWith('/path/to/master.db', 'testpassword', true);
       expect(mockDbInstance.open).toHaveBeenCalled();
     });
@@ -350,7 +350,7 @@ describe('RekordboxConnect', () => {
       updated_at: '2024-01-15 10:30:00',
     };
 
-    it('returns undefined when dangerouslyModifyHistory is false', () => {
+    it('returns undefined when dangerouslyModifyDatabase is false', () => {
       const rb = new RekordboxConnect();
       rb.start();
       const result = rb.popHistory();
@@ -358,7 +358,7 @@ describe('RekordboxConnect', () => {
     });
 
     it('returns undefined when db is not opened', () => {
-      const rb = new RekordboxConnect({ dangerouslyModifyHistory: true });
+      const rb = new RekordboxConnect({ dangerouslyModifyDatabase: true });
       const result = rb.popHistory();
       expect(result).toBeUndefined();
     });
@@ -366,7 +366,7 @@ describe('RekordboxConnect', () => {
     it('delegates to db.popHistory when enabled', () => {
       mockDbInstance.popHistory = vi.fn().mockReturnValue(mockRecord);
 
-      const rb = new RekordboxConnect({ dangerouslyModifyHistory: true });
+      const rb = new RekordboxConnect({ dangerouslyModifyDatabase: true });
       rb.start();
       const result = rb.popHistory();
 
@@ -393,7 +393,7 @@ describe('RekordboxConnect', () => {
       updated_at: '2024-01-15 10:30:00',
     };
 
-    it('returns false when dangerouslyModifyHistory is false', () => {
+    it('returns false when dangerouslyModifyDatabase is false', () => {
       const rb = new RekordboxConnect();
       rb.start();
       const result = rb.pushHistory(mockRecord);
@@ -401,7 +401,7 @@ describe('RekordboxConnect', () => {
     });
 
     it('returns false when db is not opened', () => {
-      const rb = new RekordboxConnect({ dangerouslyModifyHistory: true });
+      const rb = new RekordboxConnect({ dangerouslyModifyDatabase: true });
       const result = rb.pushHistory(mockRecord);
       expect(result).toBe(false);
     });
@@ -409,7 +409,7 @@ describe('RekordboxConnect', () => {
     it('delegates to db.pushHistory when enabled', () => {
       mockDbInstance.pushHistory = vi.fn().mockReturnValue(true);
 
-      const rb = new RekordboxConnect({ dangerouslyModifyHistory: true });
+      const rb = new RekordboxConnect({ dangerouslyModifyDatabase: true });
       rb.start();
       const result = rb.pushHistory(mockRecord);
 
