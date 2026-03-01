@@ -1,5 +1,10 @@
 # Change log
 
+## v1.2.1
+
+- fix: resolve security vulnerabilities in dependencies
+
+
 ## v1.2.0
 
 - feat: export playlist types and add proxy methods to RekordboxConnect
