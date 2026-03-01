@@ -1,5 +1,20 @@
 # Change log
 
+## v1.2.0
+
+- feat: export playlist types and add proxy methods to RekordboxConnect
+- feat: add reorderPlaylistTrack with position shifting
+- feat: add removeTrackFromPlaylist with re-sequencing
+- feat: add addTrackToPlaylist with auto-assigned TrackNo
+- feat: add renamePlaylist to update playlist names
+- feat: add deletePlaylist with folder child protection
+- feat: add createPlaylist and createFolder to Rekordbox DB
+- feat: add loadPlaylistTracks to read tracks from a playlist
+- feat: add loadPlaylists to read all playlists from Rekordbox
+- feat: add Playlist, SongPlaylistRecord, and PlaylistTrack types
+- refactor: rename dangerouslyModifyHistory to dangerouslyModifyDatabase
+
+
 ## v1.1.0
 
 - feat: add controller state emission support
