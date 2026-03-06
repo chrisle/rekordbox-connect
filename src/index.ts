@@ -12,6 +12,8 @@ export type {
     SongPlaylistRecord
 } from './types';
 export { REKORDBOX_MAGIC } from './types';
+export type { Logger } from './types/logger';
+export { noopLogger } from './types/logger';
 export {
     detectRekordboxDbPath,
     getRekordboxConfig,

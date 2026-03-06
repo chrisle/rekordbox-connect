@@ -1,5 +1,6 @@
 import EventEmitter from 'node:events';
 import type { StrictEventEmitter } from 'strict-event-emitter-types';
+import type { Logger } from './types/logger';
 
 export type RekordboxConnectOptions = {
   /** Optional absolute path to the Rekordbox SQLite database. If omitted, read from options.json. */
@@ -19,6 +20,8 @@ export type RekordboxConnectOptions = {
    * Only enable if you understand the risks of modifying the Rekordbox database.
    */
   dangerouslyModifyDatabase?: boolean;
+  /** Optional logger instance. If omitted, logging is silently disabled. */
+  logger?: Logger;
 };
 
 /**

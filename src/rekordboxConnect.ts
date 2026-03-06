@@ -1,6 +1,8 @@
 import EventEmitter from "node:events";
 import { RekordboxDb } from "./db";
 import { getRekordboxConfig } from "./detectDb";
+import type { Logger } from "./types/logger";
+import { noopLogger } from "./types/logger";
 import type {
   Playlist,
   PlaylistTrack,
@@ -20,6 +22,7 @@ export class RekordboxConnect extends (EventEmitter as {
   private readonly explicitDbPath?: string;
   private readonly explicitDbPassword?: string;
   private readonly dangerouslyModifyDatabase: boolean;
+  private readonly logger: Logger;
   private dbPath?: string;
   private timer?: NodeJS.Timeout;
   private db?: RekordboxDb;
@@ -31,6 +34,7 @@ export class RekordboxConnect extends (EventEmitter as {
     this.explicitDbPath = opts.dbPath;
     this.explicitDbPassword = opts.dbPassword;
     this.historyMaxRows = opts.historyMaxRows;
+    this.logger = opts.logger ?? noopLogger;
     // Enable via option or environment variable NP_DANGEROUSLY_MODIFY_RB_DB=true
     this.dangerouslyModifyDatabase =
       opts.dangerouslyModifyDatabase ??
@@ -54,12 +58,15 @@ export class RekordboxConnect extends (EventEmitter as {
       this.db.open();
 
       this.lastHistoryRowId = this.db.seedHistoryCursor();
+      this.logger.info("Connected to database: %s", this.dbPath);
 
       this.emit("ready", { dbPath: this.dbPath });
 
       this.timer = setInterval(() => this.pollOnce(), this.pollIntervalMs);
     } catch (err) {
-      this.emit("error", err instanceof Error ? err : new Error(String(err)));
+      const error = err instanceof Error ? err : new Error(String(err));
+      this.logger.error("Failed to start: %s", error.message);
+      this.emit("error", error);
     }
   }
 
@@ -72,6 +79,7 @@ export class RekordboxConnect extends (EventEmitter as {
       this.db.close();
       this.db = undefined;
     }
+    this.logger.debug("Stopped");
   }
 
   private pollOnce(): void {
@@ -81,7 +89,9 @@ export class RekordboxConnect extends (EventEmitter as {
       // Always poll history directly - mtime checks are unreliable with SQLite WAL mode
       this.loadHistorySafe();
     } catch (err) {
-      this.emit("error", err instanceof Error ? err : new Error(String(err)));
+      const error = err instanceof Error ? err : new Error(String(err));
+      this.logger.error("Poll error: %s", error.message);
+      this.emit("error", error);
     }
   }
 
@@ -94,10 +104,13 @@ export class RekordboxConnect extends (EventEmitter as {
       ) as RekordboxHistoryPayload | undefined;
       if (payload && payload.count > 0) {
         this.lastHistoryRowId = payload.lastRowId ?? this.lastHistoryRowId;
+        this.logger.debug("New history: %d rows", payload.count);
         this.emit("history", payload);
       }
     } catch (err) {
-      this.emit("error", err instanceof Error ? err : new Error(String(err)));
+      const error = err instanceof Error ? err : new Error(String(err));
+      this.logger.error("History load error: %s", error.message);
+      this.emit("error", error);
     }
   }
 
