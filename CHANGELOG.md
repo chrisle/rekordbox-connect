@@ -1,5 +1,10 @@
 # Change log
 
+## v1.2.2
+
+- refactor: add optional pluggable logger to rekordbox-connect
+
+
 ## v1.2.1
 
 - fix: resolve security vulnerabilities in dependencies
