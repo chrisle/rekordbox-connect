@@ -1,5 +1,10 @@
 # Change log
 
+## v1.2.3
+
+- chore: add npm publish verification step
+
+
 ## v1.2.2
 
 - refactor: add optional pluggable logger to rekordbox-connect
