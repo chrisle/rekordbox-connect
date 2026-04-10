@@ -1,5 +1,10 @@
 # Change log
 
+## v1.2.4
+
+- chore: update lockfile
+
+
 ## v1.2.3
 
 - chore: add npm publish verification step
