@@ -68,43 +68,108 @@ export class RekordboxDb {
 
     const limit = maxRows ?? DEFAULT_MAX_ROWS;
 
-    // Query djmdContent with joined metadata (same structure as history query)
-    const query = `
+    // Performance note (verified 2026-05-06 on a 115k-track library): the
+    // 6-LEFT-JOIN form was ~1.6s. Replacing it with a slim djmdContent
+    // SELECT + small lookup-table SELECTs + a JS-side join brings the
+    // whole stage to ~0.1s. The JOINs were forcing 6 index lookups per
+    // row (690k total) when the lookup tables fit easily in memory.
+    const contentSql = `
       SELECT
-        c.ID AS id,
-        c.FolderPath AS filePath,
-        c.Title AS title,
-        c.Subtitle AS subTitle,
-        a.Name AS artist,
-        c.ImagePath AS imagePath,
-        c.BPM AS bpm,
-        c.Rating AS rating,
-        c.ReleaseDate AS releaseDate,
-        c.Length AS length,
-        c.ColorID AS colorId,
-        c.Commnt AS comment,
-        c.ISRC AS isrc,
-        al.Name AS album,
-        la.Name AS label,
-        ge.Name AS genre,
-        k.ScaleName AS key,
-        rmx.Name AS remixer
-      FROM ${CONTENT_TABLE} AS c
-      LEFT JOIN djmdArtist AS a ON c.ArtistID = a.ID
-      LEFT JOIN djmdArtist AS rmx ON c.RemixerID = rmx.ID
-      LEFT JOIN djmdAlbum AS al ON c.AlbumID = al.ID
-      LEFT JOIN djmdLabel AS la ON c.LabelID = la.ID
-      LEFT JOIN djmdGenre AS ge ON c.GenreID = ge.ID
-      LEFT JOIN djmdKey AS k ON c.KeyID = k.ID
+        ID AS id,
+        FolderPath AS filePath,
+        Title AS title,
+        Subtitle AS subTitle,
+        ArtistID AS artistId,
+        RemixerID AS remixerId,
+        AlbumID AS albumId,
+        LabelID AS labelId,
+        GenreID AS genreId,
+        KeyID AS keyId,
+        ImagePath AS imagePath,
+        BPM AS bpm,
+        Rating AS rating,
+        ReleaseDate AS releaseDate,
+        Length AS length,
+        ColorID AS colorId,
+        Commnt AS comment,
+        ISRC AS isrc
+      FROM ${CONTENT_TABLE}
       LIMIT @limit
     `;
 
+    type ContentRow = {
+      id: string;
+      filePath: string | null;
+      title: string | null;
+      subTitle: string | null;
+      artistId: string | null;
+      remixerId: string | null;
+      albumId: string | null;
+      labelId: string | null;
+      genreId: string | null;
+      keyId: string | null;
+      imagePath: string | null;
+      bpm: number | null;
+      rating: number | null;
+      releaseDate: string | null;
+      length: number | null;
+      colorId: number | null;
+      comment: string | null;
+      isrc: string | null;
+    };
+
     try {
-      const rows = this.db.prepare(query).all({ limit }) as Record<string, unknown>[];
+      const contentRows = this.db.prepare(contentSql).all({ limit }) as ContentRow[];
+      const artists = this.loadNameLookup('djmdArtist', 'Name');
+      const albums = this.loadNameLookup('djmdAlbum', 'Name');
+      const labels = this.loadNameLookup('djmdLabel', 'Name');
+      const genres = this.loadNameLookup('djmdGenre', 'Name');
+      const keys = this.loadNameLookup('djmdKey', 'ScaleName');
+
+      const rows: Record<string, unknown>[] = new Array(contentRows.length);
+      for (let i = 0; i < contentRows.length; i++) {
+        const r = contentRows[i]!;
+        rows[i] = {
+          id: r.id,
+          filePath: r.filePath,
+          title: r.title,
+          subTitle: r.subTitle,
+          artist: r.artistId ? artists.get(r.artistId) ?? null : null,
+          imagePath: r.imagePath,
+          bpm: r.bpm,
+          rating: r.rating,
+          releaseDate: r.releaseDate,
+          length: r.length,
+          colorId: r.colorId,
+          comment: r.comment,
+          isrc: r.isrc,
+          album: r.albumId ? albums.get(r.albumId) ?? null : null,
+          label: r.labelId ? labels.get(r.labelId) ?? null : null,
+          genre: r.genreId ? genres.get(r.genreId) ?? null : null,
+          key: r.keyId ? keys.get(r.keyId) ?? null : null,
+          remixer: r.remixerId ? artists.get(r.remixerId) ?? null : null,
+        };
+      }
       return { dbPath: this.dbPath, count: rows.length, rows };
     } catch {
       return { dbPath: this.dbPath, count: 0, rows: [] };
     }
+  }
+
+  private loadNameLookup(table: string, nameCol: string): Map<string, string> {
+    const map = new Map<string, string>();
+    if (!this.db) return map;
+    try {
+      const rows = this.db
+        .prepare(`SELECT ID, ${nameCol} AS name FROM ${table}`)
+        .all() as { ID: string; name: string | null }[];
+      for (const r of rows) {
+        if (typeof r.name === 'string') map.set(r.ID, r.name);
+      }
+    } catch {
+      /* table missing or query failed — return whatever we have */
+    }
+    return map;
   }
 
   loadPlaylists(): Playlist[] | undefined {
@@ -164,6 +229,63 @@ export class RekordboxDb {
       return this.db.prepare(query).all({ playlistId }) as PlaylistTrack[];
     } catch {
       return [];
+    }
+  }
+
+  /**
+   * Single-query equivalent of calling {@link loadPlaylistTracks} for every
+   * playlist. Returns a Map keyed by `PlaylistID` containing tracks in
+   * `TrackNo ASC` order.
+   *
+   * Performance note (verified 2026-05-06): doing the same JOIN shape as
+   * {@link loadPlaylistTracks} but without the WHERE clause is *slower*
+   * than calling per-playlist for a 1.5k-playlist library (7.4s vs 6.1s) —
+   * the planner's per-PlaylistID index seek beats a full scan with 5 LEFT
+   * JOINs. So this method runs a slim 3-column SELECT (no metadata joins)
+   * and joins against `loadTracks()` in JS. Caller passes the rows from
+   * the `tracks` event so we don't run two SELECTs.
+   */
+  loadAllPlaylistTracks(
+    contentRows: Iterable<Record<string, unknown>>,
+  ): Map<string, PlaylistTrack[]> | undefined {
+    if (!this.db) return undefined;
+
+    // Index the content metadata by ID once.
+    const byId = new Map<string, Record<string, unknown>>();
+    for (const r of contentRows) {
+      const id = r.id;
+      if (typeof id === 'string' || typeof id === 'number') {
+        byId.set(String(id), r);
+      }
+    }
+
+    const query = `
+      SELECT
+        PlaylistID AS playlistId,
+        ContentID AS contentId,
+        TrackNo AS trackNo
+      FROM ${SONG_PLAYLIST_TABLE}
+      ORDER BY PlaylistID, TrackNo ASC
+    `;
+
+    try {
+      type Row = { playlistId: string; contentId: string; trackNo: number };
+      const rows = this.db.prepare(query).all() as Row[];
+      const map = new Map<string, PlaylistTrack[]>();
+      for (const r of rows) {
+        const meta = byId.get(String(r.contentId));
+        if (!meta) continue; // orphaned reference (rare)
+        const track = { ...(meta as unknown as PlaylistTrack), trackNo: r.trackNo };
+        let bucket = map.get(r.playlistId);
+        if (!bucket) {
+          bucket = [];
+          map.set(r.playlistId, bucket);
+        }
+        bucket.push(track);
+      }
+      return map;
+    } catch {
+      return new Map();
     }
   }
 

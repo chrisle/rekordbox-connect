@@ -9,6 +9,7 @@ import type {
   RekordboxConnectEvents,
   RekordboxConnectOptions,
   RekordboxHistoryPayload,
+  RekordboxTracksPayload,
   SongHistoryRecord,
   SongPlaylistRecord,
   TypedEmitter,
@@ -61,6 +62,9 @@ export class RekordboxConnect extends (EventEmitter as {
       this.logger.info("Connected to database: %s", this.dbPath);
 
       this.emit("ready", { dbPath: this.dbPath });
+
+      const tracks = this.db.loadTracks(Number.MAX_SAFE_INTEGER) as RekordboxTracksPayload | undefined;
+      if (tracks) this.emit("tracks", tracks);
 
       this.timer = setInterval(() => this.pollOnce(), this.pollIntervalMs);
     } catch (err) {
@@ -143,6 +147,21 @@ export class RekordboxConnect extends (EventEmitter as {
   loadPlaylistTracks(playlistId: string): PlaylistTrack[] | undefined {
     if (!this.db) return undefined;
     return this.db.loadPlaylistTracks(playlistId);
+  }
+
+  /**
+   * Single-query equivalent of calling {@link loadPlaylistTracks} for every
+   * playlist. Returns a Map keyed by `PlaylistID`. See db-layer docstring.
+   *
+   * Caller must pass the `rows` from the most recent `tracks` event — they
+   * provide the metadata (title/artist/etc.) that the slim SQL query
+   * deliberately omits.
+   */
+  loadAllPlaylistTracks(
+    contentRows: Iterable<Record<string, unknown>>,
+  ): Map<string, PlaylistTrack[]> | undefined {
+    if (!this.db) return undefined;
+    return this.db.loadAllPlaylistTracks(contentRows);
   }
 
   createPlaylist(name: string, parentId?: string): Playlist | undefined {
