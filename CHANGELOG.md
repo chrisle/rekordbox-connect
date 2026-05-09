@@ -1,5 +1,12 @@
 # Change log
 
+## v1.2.6
+
+- fix(ci): publish no longer fails when several connect repos release together
+- fix: rekordbox library now publishes again so consumer apps get the perf fix
+- perf: cut rekordbox library load from ~1.6s to ~0.1s on a 115k-track library
+
+
 ## v1.2.5
 
 - chore: update lockfile
