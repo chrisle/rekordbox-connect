@@ -7,6 +7,7 @@ const { mockDbInstance } = vi.hoisted(() => ({
     close: vi.fn(),
     seedHistoryCursor: vi.fn(),
     loadNewHistory: vi.fn(),
+    loadTracks: vi.fn(),
   },
 }));
 
@@ -38,6 +39,11 @@ describe('RekordboxConnect', () => {
       count: 0,
       rows: [],
       lastRowId: 100,
+    });
+    mockDbInstance.loadTracks.mockReturnValue({
+      dbPath: '/path/to/master.db',
+      count: 0,
+      rows: [],
     });
 
     vi.mocked(getRekordboxConfig).mockReturnValue({
@@ -134,6 +140,36 @@ describe('RekordboxConnect', () => {
 
       vi.advanceTimersByTime(1000);
       expect(mockDbInstance.loadNewHistory).toHaveBeenCalledTimes(2);
+    });
+
+    it('emits tracks event with the full library on start', () => {
+      const tracksPayload = {
+        dbPath: '/path/to/master.db',
+        count: 1,
+        rows: [{ id: '1', title: 'Track 1', artist: 'Artist 1' }],
+      };
+      mockDbInstance.loadTracks.mockReturnValue(tracksPayload);
+
+      const rb = new RekordboxConnect();
+      const tracksHandler = vi.fn();
+      rb.on('tracks', tracksHandler);
+
+      rb.start();
+
+      expect(mockDbInstance.loadTracks).toHaveBeenCalledWith(Number.MAX_SAFE_INTEGER);
+      expect(tracksHandler).toHaveBeenCalledWith(tracksPayload);
+    });
+
+    it('does not emit tracks event when loadTracks returns undefined', () => {
+      mockDbInstance.loadTracks.mockReturnValue(undefined);
+
+      const rb = new RekordboxConnect();
+      const tracksHandler = vi.fn();
+      rb.on('tracks', tracksHandler);
+
+      rb.start();
+
+      expect(tracksHandler).not.toHaveBeenCalled();
     });
   });
 

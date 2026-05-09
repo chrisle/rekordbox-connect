@@ -127,26 +127,103 @@ describe('RekordboxDb', () => {
       expect(result).toBeUndefined();
     });
 
-    it('loads tracks with default limit', () => {
+    it('loads tracks and joins lookup tables in JS', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
 
-      const mockRows = [
-        { id: 1, title: 'Track 1', artist: 'Artist 1' },
-        { id: 2, title: 'Track 2', artist: 'Artist 2' },
-      ];
-
-      mockDb.prepare.mockReturnValue({
-        all: vi.fn().mockReturnValue(mockRows),
+      // The new loadTracks (post-perf-fix) issues a slim SELECT against
+      // djmdContent for IDs only, then small SELECTs against djmdArtist /
+      // djmdAlbum / djmdLabel / djmdGenre / djmdKey to build name lookup
+      // maps, and joins everything in JS. Mock per-table.
+      mockDb.prepare.mockImplementation((sql: string) => {
+        if (sql.includes('djmdContent')) {
+          return {
+            all: vi.fn().mockReturnValue([
+              {
+                id: '1',
+                filePath: '/music/track1.mp3',
+                title: 'Track 1',
+                subTitle: null,
+                artistId: 'A1',
+                remixerId: null,
+                albumId: 'AL1',
+                labelId: null,
+                genreId: 'G1',
+                keyId: null,
+                imagePath: null,
+                bpm: 12000,
+                rating: 0,
+                releaseDate: null,
+                length: 180,
+                colorId: 0,
+                comment: null,
+                isrc: null,
+              },
+              {
+                id: '2',
+                filePath: '/music/track2.mp3',
+                title: 'Track 2',
+                subTitle: null,
+                artistId: 'A2',
+                remixerId: null,
+                albumId: null,
+                labelId: null,
+                genreId: null,
+                keyId: null,
+                imagePath: null,
+                bpm: 13000,
+                rating: 0,
+                releaseDate: null,
+                length: 200,
+                colorId: 0,
+                comment: null,
+                isrc: null,
+              },
+            ]),
+          };
+        }
+        if (sql.includes('djmdArtist')) {
+          return {
+            all: vi.fn().mockReturnValue([
+              { ID: 'A1', name: 'Artist 1' },
+              { ID: 'A2', name: 'Artist 2' },
+            ]),
+          };
+        }
+        if (sql.includes('djmdAlbum')) {
+          return {
+            all: vi.fn().mockReturnValue([{ ID: 'AL1', name: 'Album 1' }]),
+          };
+        }
+        if (sql.includes('djmdGenre')) {
+          return {
+            all: vi.fn().mockReturnValue([{ ID: 'G1', name: 'House' }]),
+          };
+        }
+        // djmdLabel, djmdKey — empty
+        return { all: vi.fn().mockReturnValue([]) };
       });
 
       const db = new RekordboxDb('/path/to/master.db', 'password');
       db.open();
       const result = db.loadTracks();
 
-      expect(result).toEqual({
-        dbPath: '/path/to/master.db',
-        count: 2,
-        rows: mockRows,
+      expect(result?.dbPath).toBe('/path/to/master.db');
+      expect(result?.count).toBe(2);
+      expect(result?.rows[0]).toMatchObject({
+        id: '1',
+        title: 'Track 1',
+        artist: 'Artist 1',
+        album: 'Album 1',
+        genre: 'House',
+        label: null,
+        key: null,
+        remixer: null,
+      });
+      expect(result?.rows[1]).toMatchObject({
+        id: '2',
+        title: 'Track 2',
+        artist: 'Artist 2',
+        album: null,
       });
       expect(mockDb.prepare).toHaveBeenCalledWith(expect.stringContaining('djmdContent'));
     });
@@ -154,24 +231,28 @@ describe('RekordboxDb', () => {
     it('loads tracks with custom limit', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
 
-      mockDb.prepare.mockReturnValue({
-        all: vi.fn().mockReturnValue([]),
-      });
+      const allFn = vi.fn().mockReturnValue([]);
+      mockDb.prepare.mockReturnValue({ all: allFn });
 
       const db = new RekordboxDb('/path/to/master.db', 'password');
       db.open();
       db.loadTracks(10);
 
-      expect(mockDb.prepare().all).toHaveBeenCalledWith({ limit: 10 });
+      expect(allFn).toHaveBeenCalledWith({ limit: 10 });
     });
 
-    it('returns empty result on query error', () => {
+    it('returns empty result when content query fails', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
 
-      mockDb.prepare.mockReturnValue({
-        all: vi.fn().mockImplementation(() => {
-          throw new Error('query error');
-        }),
+      mockDb.prepare.mockImplementation((sql: string) => {
+        if (sql.includes('djmdContent')) {
+          return {
+            all: vi.fn().mockImplementation(() => {
+              throw new Error('query error');
+            }),
+          };
+        }
+        return { all: vi.fn().mockReturnValue([]) };
       });
 
       const db = new RekordboxDb('/path/to/master.db', 'password');
