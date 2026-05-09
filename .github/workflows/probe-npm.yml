@@ -1,0 +1,35 @@
+name: Probe npm token
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: whoami via npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set +e
+          echo "## npm whoami" >> "$GITHUB_STEP_SUMMARY"
+          npm whoami 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "## /-/whoami via curl" >> "$GITHUB_STEP_SUMMARY"
+          curl -sw "\nHTTP %{http_code}\n" -H "Authorization: Bearer $NODE_AUTH_TOKEN" \
+            https://registry.npmjs.org/-/whoami | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "## /-/npm/v1/tokens (lists tokens for this user)" >> "$GITHUB_STEP_SUMMARY"
+          curl -sw "\nHTTP %{http_code}\n" -H "Authorization: Bearer $NODE_AUTH_TOKEN" \
+            https://registry.npmjs.org/-/npm/v1/tokens | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "## access list packages" >> "$GITHUB_STEP_SUMMARY"
+          npm access list packages 2>&1 | head -50 | tee -a "$GITHUB_STEP_SUMMARY"
