@@ -1,5 +1,12 @@
 # Change log
 
+## v1.2.7
+
+- ci: switch publish workflow to OIDC trusted publishing
+- chore(ci): remove npm token probe workflow [skip ci]
+- chore(ci): add npm token probe workflow [skip ci]
+
+
 ## v1.2.6
 
 - fix(ci): publish no longer fails when several connect repos release together
