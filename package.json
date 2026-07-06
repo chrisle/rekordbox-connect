@@ -43,7 +43,7 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "better-sqlite3-multiple-ciphers": "^11.7.1",
+    "better-sqlite3-multiple-ciphers": "^12.9.0",
     "egoroof-blowfish": "^2.2.2",
     "strict-event-emitter-types": "^2.0.0"
   },
