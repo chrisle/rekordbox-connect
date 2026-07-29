@@ -1,5 +1,10 @@
 # Change log
 
+## v1.2.11
+
+- ci: rekordbox-connect releases reach npm again instead of failing on every push
+
+
 ## v1.2.10
 
 - build: bump better-sqlite3-multiple-ciphers to 12.11.1 for Electron 43
