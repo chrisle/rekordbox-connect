@@ -14,6 +14,17 @@ export type RekordboxConnectOptions = {
   /** Maximum number of new history rows to emit per poll. */
   historyMaxRows?: number;
   /**
+   * Where to resume reading history from — rows with a greater rowid are new.
+   *
+   * Omit it on a first connect: the cursor seeds to the current MAX(rowid) so
+   * a whole existing History is not replayed as if it had just been played.
+   * Pass the last rowid you handled when RE-connecting (a reconnect, or a
+   * deliberate recycle to escape a stale SQLite WAL snapshot); otherwise every
+   * row written while there was no connection is skipped for good, because the
+   * fresh cursor starts past them.
+   */
+  startingHistoryRowId?: number;
+  /**
    * DANGEROUS: Enable write access to modify the Rekordbox database.
    * When enabled, write operations (history pop/push, playlist CRUD) will modify the database.
    * When disabled (default), write methods are no-ops.
