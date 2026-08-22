@@ -1,5 +1,11 @@
 # Change log
 
+## v1.2.12
+
+- fix: a track still shows up when rekordbox has lost its library entry for it
+- fix: tracks played during a reconnect are no longer lost
+
+
 ## v1.2.11
 
 - ci: rekordbox-connect releases reach npm again instead of failing on every push
