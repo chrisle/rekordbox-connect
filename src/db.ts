@@ -520,12 +520,21 @@ export class RekordboxDb {
 
     const limit = maxRows ?? DEFAULT_HISTORY_ROWS;
 
-    // Query history with joined content and metadata tables
+    // Query history with joined content and metadata tables.
+    //
+    // The content join is a LEFT JOIN on purpose. It used to be an inner join,
+    // so a history row whose djmdContent row is gone — a removed device, a
+    // streaming ContentID that never resolved — was dropped from the result
+    // entirely and the played track vanished without a trace. A row with no
+    // content still says a track was played, so it is returned with null
+    // metadata and `contentId` null to mark it; callers fall back to their own
+    // defaults and can log it.
     const query = `
       SELECT
         h.rowid AS rowid,
         h.ID AS id,
         h.created_at,
+        c.ID AS contentId,
         c.FolderPath AS filePath,
         c.Title AS title,
         c.Subtitle AS subTitle,
@@ -544,7 +553,7 @@ export class RekordboxDb {
         k.ScaleName AS key,
         rmx.Name AS remixer
       FROM ${HISTORY_TABLE} AS h
-      JOIN ${CONTENT_TABLE} AS c ON h.ContentID = c.ID
+      LEFT JOIN ${CONTENT_TABLE} AS c ON h.ContentID = c.ID
       LEFT JOIN djmdArtist AS a ON c.ArtistID = a.ID
       LEFT JOIN djmdArtist AS rmx ON c.RemixerID = rmx.ID
       LEFT JOIN djmdAlbum AS al ON c.AlbumID = al.ID

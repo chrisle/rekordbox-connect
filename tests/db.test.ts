@@ -954,6 +954,47 @@ describe('RekordboxDb', () => {
         lastRowId: 42,
       });
     });
+
+    // A history row whose djmdContent row is missing (removed device, a
+    // streaming ContentID that never resolved) used to be discarded by the
+    // join itself, so the played track never surfaced anywhere.
+    it('keeps history rows whose content record is missing', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      mockDb.prepare.mockReturnValue({
+        all: vi.fn().mockReturnValue([]),
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password');
+      db.open();
+      db.loadNewHistory(0);
+
+      const query = mockDb.prepare.mock.calls
+        .map((call: unknown[]) => String(call[0]))
+        .find((sql: string) => sql.includes('djmdSongHistory'));
+
+      expect(query).toBeDefined();
+      expect(query).toMatch(/LEFT JOIN\s+djmdContent/);
+      expect(query).not.toMatch(/(?<!LEFT )JOIN\s+djmdContent/);
+    });
+
+    it('marks a row with no content record so callers can report it', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      mockDb.prepare.mockReturnValue({
+        all: vi.fn().mockReturnValue([]),
+      });
+
+      const db = new RekordboxDb('/path/to/master.db', 'password');
+      db.open();
+      db.loadNewHistory(0);
+
+      const query = mockDb.prepare.mock.calls
+        .map((call: unknown[]) => String(call[0]))
+        .find((sql: string) => sql.includes('djmdSongHistory'));
+
+      expect(query).toMatch(/c\.ID AS contentId/);
+    });
   });
 
   describe('popHistory', () => {

@@ -291,6 +291,84 @@ describe('RekordboxConnect', () => {
       expect(mockDbInstance.loadNewHistory).toHaveBeenCalledWith(101, undefined);
     });
 
+    // A reconnect (or the desktop's deliberate recycle to escape a stale
+    // SQLite WAL snapshot) used to reseed from MAX(rowid), so every row written
+    // while there was no connection started out already behind the cursor and
+    // was never read again.
+    it('resumes from a supplied cursor instead of skipping past the gap', () => {
+      const rb = new RekordboxConnect({
+        pollIntervalMs: 1000,
+        startingHistoryRowId: 42,
+      });
+      rb.start();
+
+      expect(mockDbInstance.seedHistoryCursor).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(1000);
+      expect(mockDbInstance.loadNewHistory).toHaveBeenCalledWith(42, undefined);
+    });
+
+    it('seeds from MAX(rowid) when no cursor is supplied', () => {
+      // A first connect must not replay the whole existing History as if it
+      // had just been played.
+      const rb = new RekordboxConnect({ pollIntervalMs: 1000 });
+      rb.start();
+
+      expect(mockDbInstance.seedHistoryCursor).toHaveBeenCalled();
+
+      vi.advanceTimersByTime(1000);
+      expect(mockDbInstance.loadNewHistory).toHaveBeenCalledWith(100, undefined);
+    });
+
+    it('warns about history rows that have no content record', () => {
+      const logger = {
+        trace: vi.fn(),
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      };
+      mockDbInstance.loadNewHistory.mockReturnValue({
+        dbPath: '/path/to/master.db',
+        count: 2,
+        rows: [
+          { rowid: 101, contentId: 'C1', title: 'Has Content' },
+          { rowid: 102, contentId: null, title: null },
+        ],
+        lastRowId: 102,
+      });
+
+      const rb = new RekordboxConnect({ pollIntervalMs: 1000, logger });
+      rb.start();
+      vi.advanceTimersByTime(1000);
+
+      expect(logger.warn).toHaveBeenCalled();
+      expect(String(logger.warn.mock.calls[0][1])).toBe('1');
+      expect(String(logger.warn.mock.calls[0][2])).toBe('102');
+    });
+
+    it('stays quiet when every history row has a content record', () => {
+      const logger = {
+        trace: vi.fn(),
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      };
+      mockDbInstance.loadNewHistory.mockReturnValue({
+        dbPath: '/path/to/master.db',
+        count: 1,
+        rows: [{ rowid: 101, contentId: 'C1', title: 'Has Content' }],
+        lastRowId: 101,
+      });
+
+      const rb = new RekordboxConnect({ pollIntervalMs: 1000, logger });
+      rb.start();
+      vi.advanceTimersByTime(1000);
+
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
+
     it('passes historyMaxRows to loadNewHistory', () => {
       const rb = new RekordboxConnect({ pollIntervalMs: 1000, historyMaxRows: 50 });
       rb.start();

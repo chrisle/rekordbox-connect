@@ -20,6 +20,7 @@ export class RekordboxConnect extends (EventEmitter as {
 }) {
   private readonly pollIntervalMs: number;
   private readonly historyMaxRows?: number;
+  private readonly startingHistoryRowId?: number;
   private readonly explicitDbPath?: string;
   private readonly explicitDbPassword?: string;
   private readonly dangerouslyModifyDatabase: boolean;
@@ -35,6 +36,7 @@ export class RekordboxConnect extends (EventEmitter as {
     this.explicitDbPath = opts.dbPath;
     this.explicitDbPassword = opts.dbPassword;
     this.historyMaxRows = opts.historyMaxRows;
+    this.startingHistoryRowId = opts.startingHistoryRowId;
     this.logger = opts.logger ?? noopLogger;
     // Enable via option or environment variable NP_DANGEROUSLY_MODIFY_RB_DB=true
     this.dangerouslyModifyDatabase =
@@ -58,7 +60,11 @@ export class RekordboxConnect extends (EventEmitter as {
       );
       this.db.open();
 
-      this.lastHistoryRowId = this.db.seedHistoryCursor();
+      // A caller that already knows where it got to resumes from there, so
+      // rows written while it had no connection are still picked up. Only a
+      // first connect seeds from MAX(rowid), which skips the existing History.
+      this.lastHistoryRowId =
+        this.startingHistoryRowId ?? this.db.seedHistoryCursor();
       this.logger.info("Connected to database: %s", this.dbPath);
 
       this.emit("ready", { dbPath: this.dbPath });
@@ -109,6 +115,7 @@ export class RekordboxConnect extends (EventEmitter as {
       if (payload && payload.count > 0) {
         this.lastHistoryRowId = payload.lastRowId ?? this.lastHistoryRowId;
         this.logger.debug("New history: %d rows", payload.count);
+        this.warnAboutOrphanedRows(payload.rows);
         this.emit("history", payload);
       }
     } catch (err) {
@@ -116,6 +123,24 @@ export class RekordboxConnect extends (EventEmitter as {
       this.logger.error("History load error: %s", error.message);
       this.emit("error", error);
     }
+  }
+
+  /**
+   * Note history rows whose djmdContent row is missing.
+   *
+   * These used to be dropped by the query itself, so a played track simply
+   * never appeared. They are returned now, with null metadata — the consumer
+   * falls back to its own defaults, and this line makes the cause visible
+   * instead of leaving a track with no artist and no explanation.
+   */
+  private warnAboutOrphanedRows(rows: Record<string, unknown>[]): void {
+    const orphaned = rows.filter((row) => row.contentId == null);
+    if (orphaned.length === 0) return;
+    this.logger.warn(
+      "%d history row(s) have no matching content record (rowids: %s); emitting with missing metadata",
+      orphaned.length,
+      orphaned.map((row) => row.rowid).join(", "),
+    );
   }
 
   /**
