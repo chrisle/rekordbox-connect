@@ -1,5 +1,10 @@
 # Change log
 
+## v1.2.13
+
+- fix: the SQLite driver keeps building under npm 12, which blocks install scripts by default
+
+
 ## v1.2.12
 
 - fix: a track still shows up when rekordbox has lost its library entry for it
