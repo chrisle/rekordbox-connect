@@ -1,5 +1,10 @@
 # Change log
 
+## v1.2.15
+
+- ci: CI comes from the shared connector-ci workflows
+
+
 ## v1.2.14
 
 - ci: pull requests are tested the way main is
