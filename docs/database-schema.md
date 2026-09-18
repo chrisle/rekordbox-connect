@@ -1074,7 +1074,14 @@ Sampler assignments.
 
 ## djmdSongTagList
 
-Tag list assignments.
+Tag list assignments: rekordbox's one temporary "Tag List", one row per
+track on it, `TrackNo` running from 1 in list order.
+
+Observed in a rekordbox 7.2.11 library (macOS, 45 rows written by rekordbox
+on 2026-09-13): every row has `usn` and `rb_local_usn` NULL and
+`rb_local_deleted` 0 — unlike `djmdSongPlaylist`, adding to the tag list
+does not move the library's update counter. Whether removal soft-deletes
+(`rb_local_deleted = 1`) or deletes the row was not observed.
 
 | Column | Type | Primary Key |
 |--------|------|-------------|
