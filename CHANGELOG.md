@@ -1,5 +1,10 @@
 # Change log
 
+## v1.2.16
+
+- docs: djmdSongTagList rows carry no usn, as rekordbox 7.2.11 writes them
+
+
 ## v1.2.15
 
 - ci: CI comes from the shared connector-ci workflows
