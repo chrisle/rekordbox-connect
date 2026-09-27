@@ -1,5 +1,10 @@
 # Change log
 
+## v1.2.17
+
+- ci: retire release.js so fixes pushed to main reach npm (NP3-461)
+
+
 ## v1.2.16
 
 - docs: djmdSongTagList rows carry no usn, as rekordbox 7.2.11 writes them
